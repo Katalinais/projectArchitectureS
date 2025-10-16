@@ -1,0 +1,1 @@
+scp -r server/ pi@raspberrypi.local:/home/pi
