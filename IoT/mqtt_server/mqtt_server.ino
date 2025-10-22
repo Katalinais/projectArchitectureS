@@ -2,11 +2,11 @@
 #include <PubSubClient.h>
 
 // WiFi
-const char* ssid = "Terra Casa 12";
-const char* password = "Kata0209";
+const char* ssid = "ssid";
+const char* password = "password";
 
 // Broker MQTT (la IP de tu Raspberry Pi)
-const char* mqtt_server = "192.168.1.82";  
+const char* mqtt_server = "192.168.1.xx";  
 
 WiFiClient espClient;
 PubSubClient client(espClient);
