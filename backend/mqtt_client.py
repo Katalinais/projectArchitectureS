@@ -10,7 +10,7 @@ class MQTTClient:
         self.broker = broker
         self.port = port
         self.topic = topic
-        self.ultimo_mensaje = {"topic": None, "mensaje": None}
+        self.latest_data = None
         self.client = None
         self.thread = None
         self.buffer = DataBuffer(window_seconds=window_seconds)
@@ -51,7 +51,7 @@ class MQTTClient:
                 "timestamp": timestamp_str
             }
             
-            self.ultimo_mensaje = result_data
+            self.latest_data = result_data
             
             print(json.dumps(result_data, indent=2))
         
@@ -80,16 +80,9 @@ class MQTTClient:
             print(f"Error starting MQTT: {e}")
             raise
     
-    def get_ultimo_mensaje(self):
-        return self.ultimo_mensaje
+    def get_latest_data(self):
+        return self.latest_data
     
-    def publish(self, mensaje):
-        if self.client:
-            if isinstance(mensaje, dict):
-                mensaje = json.dumps(mensaje)
-            self.client.publish(self.topic, mensaje)
-        else:
-            raise RuntimeError("Cliente MQTT no inicializado")
     
     def stop(self):
         if self.timer:
@@ -113,6 +106,6 @@ def init_mqtt_client(broker="192.168.1.205", port=1883, topic="sensor/sonido", w
 
 def get_mqtt_client():
     if _mqtt_client_instance is None:
-        raise RuntimeError("Cliente MQTT no inicializado. Llama a init_mqtt_client() primero")
+        raise RuntimeError("MQTT client not initialized. Call init_mqtt_client() first")
     return _mqtt_client_instance
 

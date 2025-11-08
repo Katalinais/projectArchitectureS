@@ -5,28 +5,69 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { NoiseChart } from "@/components/noise-chart"
 import { NoiseMetrics } from "@/components/noise-metrics"
 
+const API_URL = "http://localhost:5173"
+
+interface SensorData {
+  value: number
+  samples: number
+  timestamp: string | null
+}
+
 export default function DashboardPage() {
-  const [currentNoise, setCurrentNoise] = useState(45)
+  const [currentNoise, setCurrentNoise] = useState<number | null>(null)
   const [noiseHistory, setNoiseHistory] = useState<{ time: string; value: number }[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Simular datos de ruido en tiempo real
-    const interval = setInterval(() => {
-      const newNoise = Math.floor(Math.random() * 40) + 30 // Entre 30 y 70 dB
-      const now = new Date()
-      const timeString = now.toLocaleTimeString("es-ES", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      })
+    const fetchData = async () => {
+      try {
+        const response = await fetch(`${API_URL}/data`)
+        
+        if (!response.ok) {
+          if (response.status === 404) {
+            setError("No data available yet")
+            setLoading(false)
+            return
+          }
+          throw new Error(`HTTP error! status: ${response.status}`)
+        }
 
-      setCurrentNoise(newNoise)
-      setNoiseHistory((prev) => {
-        const updated = [...prev, { time: timeString, value: newNoise }]
-        // Mantener solo los últimos 20 puntos
-        return updated.slice(-20)
-      })
-    }, 2000)
+        const data: SensorData = await response.json()
+        
+        if (data.value !== undefined) {
+          setCurrentNoise(data.value)
+          setError(null)
+          
+          // Add to history for chart
+          if (data.timestamp) {
+            const timestamp = new Date(data.timestamp)
+            const timeString = timestamp.toLocaleTimeString("es-ES", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+            
+            setNoiseHistory((prev) => {
+              const updated = [...prev, { time: timeString, value: data.value }]
+              // Keep only the last 20 points
+              return updated.slice(-20)
+            })
+          }
+        }
+        setLoading(false)
+      } catch (err) {
+        console.error("Error fetching data:", err)
+        setError(err instanceof Error ? err.message : "Failed to fetch data")
+        setLoading(false)
+      }
+    }
+
+    // Fetch immediately
+    fetchData()
+
+    // Then fetch every 2 seconds (matching backend window)
+    const interval = setInterval(fetchData, 2000)
 
     return () => clearInterval(interval)
   }, [])
@@ -39,7 +80,25 @@ export default function DashboardPage() {
           <p className="text-muted-foreground">Monitoreo en tiempo real de niveles de sonido</p>
         </header>
 
-        <NoiseMetrics currentNoise={currentNoise} />
+        {loading && (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-muted-foreground">Loading data...</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {error && (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-red-500">Error: {error}</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {currentNoise !== null && !error && (
+          <NoiseMetrics currentNoise={currentNoise} />
+        )}
 
         <Card>
           <CardHeader>
