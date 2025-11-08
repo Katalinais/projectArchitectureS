@@ -1,3 +1,6 @@
-/venv
 .DS_Store
 IoT/.DS_Store
+/backend/venv
+/backend/.env
+/frontend/.env
+/backend/__pycache__

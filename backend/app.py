@@ -11,7 +11,8 @@ app.config.from_object(config[env])
 mqtt_client = init_mqtt_client(
     broker=app.config['MQTT_BROKER'],
     port=app.config['MQTT_PORT'],
-    topic=app.config['MQTT_TOPIC']
+    topic=app.config['MQTT_TOPIC'],
+    window_seconds=app.config['WINDOW_SECONDS']
 )
 
 @app.route('/')
