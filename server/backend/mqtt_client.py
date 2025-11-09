@@ -97,7 +97,7 @@ class MQTTClient:
 
 _mqtt_client_instance = None
 
-def init_mqtt_client(broker="192.168.1.205", port=1883, topic="sensor/sonido", window_seconds=2):
+def init_mqtt_client(broker="192.168.1.75", port=1883, topic="sensor/sonido", window_seconds=2):
     global _mqtt_client_instance
     if _mqtt_client_instance is None:
         _mqtt_client_instance = MQTTClient(broker, port, topic, window_seconds=window_seconds)

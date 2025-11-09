@@ -1,7 +1,7 @@
 import os
 
 class Config:
-    MQTT_BROKER = os.environ.get('MQTT_BROKER') or '192.168.1.205'
+    MQTT_BROKER = os.environ.get('MQTT_BROKER') or '192.168.1.75'
     MQTT_PORT = int(os.environ.get('MQTT_PORT') or 1883)
     MQTT_TOPIC = os.environ.get('MQTT_TOPIC') or 'sensor/sonido'
     WINDOW_SECONDS = int(os.environ.get('WINDOW_SECONDS') or 2)
