@@ -1,4 +1,5 @@
 import time
+import math
 from collections import deque
 from typing import List, Dict, Any
 
@@ -76,3 +77,12 @@ def calculate_average(data: List[Dict[str, Any]], field: str = None) -> Any:
     
     return result
 
+def analog_to_db(raw_value, min_value=120, max_value=1023):
+    raw_value = max(min_value, min(raw_value, max_value))
+    
+    normalized = (raw_value - min_value) / (max_value - min_value)
+
+    normalized = max(normalized, 0.0001)
+    
+    db = 40 + 60 * math.log10(normalized + 1)
+    return round(db, 2)

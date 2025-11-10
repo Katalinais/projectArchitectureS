@@ -22,15 +22,19 @@ export function Dashboard() {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null)
   const [currentNoiseLevel, setCurrentNoiseLevel] = useState<number | null>(null)
   const [noiseHistory, setNoiseHistory] = useState<Array<{ time: string; value: number }>>([])
+  const [alerts, setAlerts] = useState<{ time: string; value: number }[]>([])
+  const [isAlertActive, setIsAlertActive] = useState(false)
+  const [alertStartTime, setAlertStartTime] = useState<Date | null>(null)
+  const ALERT_THRESHOLD = 150
 
   useEffect(() => {
     // Simular datos de dispositivos GPS (sin niveles de ruido simulados)
     const mockDevices: Device[] = [
       {
         id: "GPS-001",
-        name: "Dispositivo Norte",
-        lat: 40.7128,
-        lng: -74.006,
+        name: "Dispositivo UPTC",
+        lat: 5.551781,
+        lng: -73.355335,
         noiseLevel: 0,
         status: "active",
         lastUpdate: new Date(),
@@ -49,24 +53,6 @@ export function Dashboard() {
         name: "Dispositivo Este",
         lat: 40.7489,
         lng: -73.968,
-        noiseLevel: 0,
-        status: "active",
-        lastUpdate: new Date(),
-      },
-      {
-        id: "GPS-004",
-        name: "Dispositivo Oeste",
-        lat: 40.7282,
-        lng: -74.0776,
-        noiseLevel: 0,
-        status: "active",
-        lastUpdate: new Date(),
-      },
-      {
-        id: "GPS-005",
-        name: "Dispositivo Centro",
-        lat: 40.741,
-        lng: -73.9896,
         noiseLevel: 0,
         status: "active",
         lastUpdate: new Date(),
@@ -93,7 +79,31 @@ export function Dashboard() {
         
         if (data.value !== undefined) {
           setCurrentNoiseLevel(data.value)
-          
+
+        // Detectar alerta si supera el umbral
+        if (data.value > ALERT_THRESHOLD && !isAlertActive) {
+            // Nueva alerta detectada
+            const timestamp = new Date(data.timestamp || Date.now())
+            const timeString = timestamp.toLocaleTimeString("es-ES", {
+              hour: "2-digit",
+              minute: "2-digit",
+              second: "2-digit",
+            })
+
+            setAlerts((prev) => [...prev, { time: timeString, value: data.value }])
+            setIsAlertActive(true)
+            setAlertStartTime(timestamp)
+            } else if (data.value > ALERT_THRESHOLD && isAlertActive) {
+            // Alerta sigue activa, actualizar alertStartTime si no está seteado
+            if (!alertStartTime) {
+              setAlertStartTime(new Date(data.timestamp || Date.now()))
+            }
+          } else if (data.value <= ALERT_THRESHOLD && isAlertActive) {
+            // Volvió a la normalidad
+            setIsAlertActive(false)
+            setAlertStartTime(null)
+          }
+
           // Add to history for chart
           if (data.timestamp) {
             const timestamp = new Date(data.timestamp)
@@ -122,12 +132,14 @@ export function Dashboard() {
     const interval = setInterval(fetchData, 2000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [isAlertActive, alertStartTime])
 
   const avgNoiseLevel = currentNoiseLevel !== null ? Math.round(currentNoiseLevel) : 0
 
   const activeDevices = devices.filter((d) => d.status === "active").length
   const criticalDevices = devices.filter((d) => d.status === "critical").length
+
+  const alertDurationSeconds = alertStartTime ? Math.floor((Date.now() - alertStartTime.getTime()) / 1000) : 0
 
   return (
     <div className="min-h-screen bg-background p-4 md:p-6 lg:p-8">
@@ -146,14 +158,25 @@ export function Dashboard() {
 
         {/* Stats Cards */}
         <div className="grid gap-4 md:grid-cols-3">
-          <Card>
+          <Card
+            className={`transition-all duration-300 ${
+              isAlertActive ? "border-red-500 bg-red-50" : "border-border bg-white"
+            }`}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Dispositivos Activos</CardTitle>
-              <MapPin className="h-4 w-4 text-muted-foreground" />
+              <CardTitle
+                className={`text-sm font-medium ${
+                  isAlertActive ? "text-red-600" : "text-muted-foreground"
+                }`}
+              >
+                {isAlertActive ? "¡Alerta activa!" : "Por ahora no hay alertas"}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{activeDevices}</div>
-              <p className="text-xs text-muted-foreground">{criticalDevices} en estado crítico</p>
+              {isAlertActive ? (
+                <p className="text-red-600">Ruido alto detectado</p>
+              ) : (
+                <p className="text-muted-foreground">No se detectan alertas en este momento.</p>
+              )}
             </CardContent>
           </Card>
 
@@ -172,12 +195,29 @@ export function Dashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Estado del Sistema</CardTitle>
+              <CardTitle className="text-sm font-medium">Última Alerta</CardTitle>
               <Activity className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-primary">Operativo</div>
-              <p className="text-xs text-muted-foreground">Todos los sistemas funcionando</p>
+              {isAlertActive ? (
+                <p className="text-xs text-red-600">
+                  Alerta activa desde hace {alertDurationSeconds} segundo{alertDurationSeconds !== 1 ? "s" : ""}
+                </p>
+              ) : alerts.length > 0 ? (
+                <>
+                  <div className="text-2xl font-bold text-red-600">
+                    {Math.round(alerts[alerts.length - 1].value)} dB
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Detectada a las {alerts[alerts.length - 1].time}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <div className="text-2xl font-bold text-primary">Sin alertas</div>
+                  <p className="text-xs text-muted-foreground">Todo está en orden</p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>

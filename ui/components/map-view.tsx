@@ -1,221 +1,84 @@
 "use client"
 
-import type React from "react"
-import { useRef, useState } from "react"
+import dynamic from "next/dynamic"
+import { useEffect, useState } from "react"
 import type { Device } from "@/types/device"
 
-interface MapViewProps {
+// 🚀 Cargamos react-leaflet de forma dinámica (sin SSR)
+const MapContainer = dynamic(
+  async () => (await import("react-leaflet")).MapContainer,
+  { ssr: false }
+)
+const TileLayer = dynamic(
+  async () => (await import("react-leaflet")).TileLayer,
+  { ssr: false }
+)
+const CircleMarker = dynamic(
+  async () => (await import("react-leaflet")).CircleMarker,
+  { ssr: false }
+)
+const Tooltip = dynamic(
+  async () => (await import("react-leaflet")).Tooltip,
+  { ssr: false }
+)
+
+// También cargamos los estilos después de montar
+export function MapView({ devices, selectedDevice, onDeviceSelect }: {
   devices: Device[]
   selectedDevice: Device | null
   onDeviceSelect: (device: Device) => void
-}
+}) {
+  const [mounted, setMounted] = useState(false)
 
-export function MapView({ devices, selectedDevice, onDeviceSelect }: MapViewProps) {
-  const [zoom, setZoom] = useState(13)
-  const [center, setCenter] = useState({ lat: 40.7128, lng: -74.006 })
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 })
-  const [isDragging, setIsDragging] = useState(false)
-  const [dragStart, setDragStart] = useState({ x: 0, y: 0 })
-  const mapRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    import("leaflet/dist/leaflet.css")
+    setMounted(true)
+  }, [])
 
-  // Convertir coordenadas lat/lng a píxeles en el mapa
-  const latLngToPixel = (lat: number, lng: number) => {
-    const scale = Math.pow(2, zoom)
-    const worldWidth = 256 * scale
-
-    const x = ((lng + 180) / 360) * worldWidth
-    const latRad = (lat * Math.PI) / 180
-    const mercN = Math.log(Math.tan(Math.PI / 4 + latRad / 2))
-    const y = worldWidth / 2 - (worldWidth * mercN) / (2 * Math.PI)
-
-    const centerX = ((center.lng + 180) / 360) * worldWidth
-    const centerLatRad = (center.lat * Math.PI) / 180
-    const centerMercN = Math.log(Math.tan(Math.PI / 4 + centerLatRad / 2))
-    const centerY = worldWidth / 2 - (worldWidth * centerMercN) / (2 * Math.PI)
-
-    return {
-      x: x - centerX + 400 + dragOffset.x,
-      y: y - centerY + 200 + dragOffset.y,
-    }
-  }
-
-  const handleWheel = (e: React.WheelEvent) => {
-    e.preventDefault()
-    setZoom((prev) => Math.max(10, Math.min(16, prev + (e.deltaY > 0 ? -0.5 : 0.5))))
-  }
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true)
-    setDragStart({ x: e.clientX, y: e.clientY })
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging) return
-
-    const dx = e.clientX - dragStart.x
-    const dy = e.clientY - dragStart.y
-
-    setDragOffset((prev) => ({
-      x: prev.x + dx,
-      y: prev.y + dy,
-    }))
-
-    setDragStart({ x: e.clientX, y: e.clientY })
-  }
-
-  const handleMouseUp = () => {
-    if (!isDragging) return
-
-    const scale = Math.pow(2, zoom)
-    const worldWidth = 256 * scale
-
-    const dlng = (-dragOffset.x / worldWidth) * 360
-    const dlat = (dragOffset.y / worldWidth) * 180
-
-    setCenter((prev) => ({
-      lat: Math.max(-85, Math.min(85, prev.lat + dlat)),
-      lng: ((prev.lng + dlng + 180) % 360) - 180,
-    }))
-
-    setDragOffset({ x: 0, y: 0 })
-    setIsDragging(false)
-  }
+  if (!mounted) return <div className="text-sm text-gray-400 p-4">Cargando mapa...</div>
 
   return (
-    <div className="relative h-[400px] w-full overflow-hidden rounded-lg border border-border bg-muted">
-      <div
-        ref={mapRef}
-        className="absolute inset-0 cursor-grab active:cursor-grabbing"
-        onWheel={handleWheel}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
+    <div className="relative h-[400px] w-full rounded-lg border border-border overflow-hidden">
+      <MapContainer
+        center={[5.5353, -73.3678]}
+        zoom={13}
+        className="h-full w-full"
+        style={{ borderRadius: "8px" }}
       >
-        <div
-          className="absolute inset-0"
-          style={{
-            transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)`,
-            transition: isDragging ? "none" : "transform 0.1s ease-out",
-          }}
-        >
-          {[-1, 0, 1].map((dx) =>
-            [-1, 0, 1].map((dy) => {
-              const tileX = Math.floor(((center.lng + 180) / 360) * Math.pow(2, zoom)) + dx
-              const tileY =
-                Math.floor(
-                  ((1 -
-                    Math.log(Math.tan((center.lat * Math.PI) / 180) + 1 / Math.cos((center.lat * Math.PI) / 180)) /
-                      Math.PI) /
-                    2) *
-                    Math.pow(2, zoom),
-                ) + dy
+        <TileLayer
+          attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
+          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
 
-              const centerTileX = Math.floor(((center.lng + 180) / 360) * Math.pow(2, zoom))
-              const centerTileY = Math.floor(
-                ((1 -
-                  Math.log(Math.tan((center.lat * Math.PI) / 180) + 1 / Math.cos((center.lat * Math.PI) / 180)) /
-                    Math.PI) /
-                  2) *
-                  Math.pow(2, zoom),
-              )
-
-              return (
-                <div
-                  key={`${dx}-${dy}`}
-                  className="absolute"
-                  style={{
-                    left: `${400 + (tileX - centerTileX) * 256 - 128}px`,
-                    top: `${200 + (tileY - centerTileY) * 256 - 128}px`,
-                    width: "256px",
-                    height: "256px",
-                    backgroundImage: `url(https://tile.openstreetmap.org/${zoom}/${tileX}/${tileY}.png)`,
-                    backgroundSize: "cover",
-                  }}
-                />
-              )
-            }),
-          )}
-        </div>
-
-        <svg className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%" }}>
-          {devices.map((device) => {
-            const pos = latLngToPixel(device.lat, device.lng)
+        {devices
+          .filter((d) => d.lat && d.lng)
+          .map((device) => {
             const color = getNoiseColor(device.noiseLevel)
             const isSelected = selectedDevice?.id === device.id
 
             return (
-              <g key={device.id} className="pointer-events-auto cursor-pointer" onClick={() => onDeviceSelect(device)}>
-                <circle cx={pos.x} cy={pos.y} r={isSelected ? 20 : 16} fill="white" opacity={0.9} />
-                <circle cx={pos.x} cy={pos.y} r={isSelected ? 17 : 13} fill={color} />
-                <text
-                  x={pos.x}
-                  y={pos.y}
-                  textAnchor="middle"
-                  dominantBaseline="central"
-                  fill="white"
-                  fontSize={isSelected ? "12" : "10"}
-                  fontWeight="bold"
-                  className="pointer-events-none select-none"
-                >
-                  {Math.round(device.noiseLevel)}
-                </text>
-                {isSelected && (
-                  <g>
-                    <rect x={pos.x - 60} y={pos.y - 60} width="120" height="50" rx="4" fill="white" opacity={0.95} />
-                    <text
-                      x={pos.x}
-                      y={pos.y - 45}
-                      textAnchor="middle"
-                      fill="black"
-                      fontSize="11"
-                      fontWeight="bold"
-                      className="pointer-events-none"
-                    >
-                      {device.name}
-                    </text>
-                    <text
-                      x={pos.x}
-                      y={pos.y - 30}
-                      textAnchor="middle"
-                      fill="black"
-                      fontSize="9"
-                      className="pointer-events-none"
-                    >
-                      ID: {device.id}
-                    </text>
-                    <text
-                      x={pos.x}
-                      y={pos.y - 18}
-                      textAnchor="middle"
-                      fill="black"
-                      fontSize="9"
-                      className="pointer-events-none"
-                    >
-                      Ruido: {Math.round(device.noiseLevel)} dB
-                    </text>
-                  </g>
-                )}
-              </g>
+              <CircleMarker
+                key={device.id}
+                center={[device.lat, device.lng]}
+                radius={isSelected ? 12 : 8}
+                color="#fff"
+                fillColor={color}
+                fillOpacity={0.9}
+                weight={2}
+                eventHandlers={{
+                  click: () => onDeviceSelect(device),
+                }}
+              >
+                <Tooltip direction="top" offset={[0, -10]} opacity={1} permanent={false}>
+                  <div>
+                    <strong>{device.name}</strong> <br />
+                    {Math.round(device.noiseLevel)} dB
+                  </div>
+                </Tooltip>
+              </CircleMarker>
             )
           })}
-        </svg>
-      </div>
-
-      <div className="absolute bottom-4 right-4 flex flex-col gap-2">
-        <button
-          onClick={() => setZoom((prev) => Math.min(16, prev + 1))}
-          className="flex h-8 w-8 items-center justify-center rounded-md bg-background border border-border shadow-sm hover:bg-accent"
-        >
-          +
-        </button>
-        <button
-          onClick={() => setZoom((prev) => Math.max(10, prev - 1))}
-          className="flex h-8 w-8 items-center justify-center rounded-md bg-background border border-border shadow-sm hover:bg-accent"
-        >
-          −
-        </button>
-      </div>
+      </MapContainer>
 
       <div className="absolute top-4 left-4 rounded-md bg-background/95 p-3 shadow-md border border-border">
         <div className="text-xs font-semibold mb-2">Nivel de Ruido</div>
@@ -233,10 +96,6 @@ export function MapView({ devices, selectedDevice, onDeviceSelect }: MapViewProp
             <span>{"> 70 dB (Alto)"}</span>
           </div>
         </div>
-      </div>
-
-      <div className="absolute bottom-4 left-4 rounded-md bg-background/95 px-3 py-2 text-xs text-muted-foreground shadow-md border border-border">
-        Arrastra para mover • Rueda para zoom
       </div>
     </div>
   )

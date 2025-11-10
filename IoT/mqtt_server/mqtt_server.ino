@@ -2,11 +2,11 @@
 #include <PubSubClient.h>
 
 // WiFi
-const char* ssid = "ssid";
-const char* password = "password";
+const char* ssid = "SERGIO APTO_2.4";
+const char* password = "23121995";
 
 // Broker MQTT (la IP de tu Raspberry Pi)
-const char* mqtt_server = "192.168.1.xx";  
+const char* mqtt_server = "192.168.1.32";  
 
 WiFiClient espClient;
 PubSubClient client(espClient);
@@ -71,5 +71,5 @@ void loop() {
   client.publish("sensor/sonido", message.c_str());
   Serial.println("Enviado: " + message);
 
-  delay(500);
+  delay(200);
 }

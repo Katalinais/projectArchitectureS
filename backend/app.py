@@ -2,6 +2,7 @@ from flask import Flask, send_from_directory, jsonify
 from flask_cors import CORS
 from mqtt_client import init_mqtt_client
 from config import config
+from utils import analog_to_db 
 import os
 
 app = Flask(__name__, static_folder="../frontend/out", static_url_path="/")
@@ -26,6 +27,16 @@ def get_data():
     latest_data = mqtt_client.get_latest_data()
     if latest_data is None:
         return jsonify({"error": "No data available yet"}), 404
+
+    # Convierte el valor analógico a dB si está presente
+    if "value" in latest_data:
+        try:
+            raw_value = float(latest_data["value"])
+            db_value = analog_to_db(raw_value)
+            latest_data["value"] = db_value  # reemplaza el valor con los dB
+        except Exception as e:
+            print(f"Error al convertir valor a dB: {e}")
+
     return jsonify(latest_data)
 
 if __name__ == "__main__":
